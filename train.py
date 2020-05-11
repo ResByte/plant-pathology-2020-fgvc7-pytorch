@@ -31,6 +31,8 @@ def set_global_seed(seed):
 
 def compute_dataset_weights(df):
     # ['healthy', 'multiple_diseases', 'rust', 'scab']
+    # these weights are found from raw data distribution
+    # inverse of frequence of each dataset
     weights = 1. / \
         torch.Tensor([0.22624931, 0.03953871, 0.27292696, 0.25974739]).double()
     print(weights)
@@ -48,6 +50,12 @@ def main():
     cfg['device'] = torch.device(
         "cuda" if torch.cuda.is_available() else "cpu")
     timestr = time.strftime("%Y%m%d-%H%M%S")
+    cfg['logdir'] += f"{cfg['arch']}_"
+    cfg['logdir'] += f"{cfg['exp_idx']}_"
+    cfg['logdir'] += f"{cfg['input_size']}_"
+    cfg['logdir'] += f"{cfg['criterion']}_"
+    cfg['logdir'] += f"{cfg['optimizer']}_"
+    cfg['logdir'] += f"split{cfg['data_split']}_"
     cfg['logdir'] += timestr
     set_global_seed(cfg['random_state'])
     pprint(cfg)
@@ -75,18 +83,23 @@ def main():
     print(
         f"Training set size:{len(train_dataset)}, Test set size:{len(test_dataset)}")
 
-    # data loaders
-    weighted_sampler = WeightedRandomSampler(
-       weights=train_img_weights, num_samples=len(train_img_weights), replacement=False)
+    # prepare train and test loader
+    if cfg['sampling'] == 'weighted':
+        # image weight based on statistics
+        train_img_weights = compute_dataset_weights(train_df)
+        # weighted sampler
+        weighted_sampler = WeightedRandomSampler(
+            weights=train_img_weights, num_samples=len(train_img_weights), replacement=False)
+        # batch sampler from weigted sampler
+        batch_sampler = BatchSampler(
+            weighted_sampler, batch_size=cfg['batch_size'], drop_last=True)
+        # train loader
+        train_loader = DataLoader(
+            train_dataset, batch_sampler=batch_sampler, num_workers=4)
+    elif cfg['sampling'] == 'normal':
+        train_loader = DataLoader(
+            train_dataset, cfg['batch_size'], shuffle=True, num_workers=2)
 
-    batch_sampler = BatchSampler(
-       weighted_sampler, batch_size=cfg['batch_size'], drop_last=True)
-    
-    # no batch sampling
-#     train_loader = DataLoader(
-#         train_dataset, cfg['batch_size'], shuffle=True, num_workers=2)
-    train_loader = DataLoader(
-       train_dataset, batch_sampler=batch_sampler, num_workers=4)
     test_loader = DataLoader(
         test_dataset, cfg['test_batch_size'], shuffle=False, num_workers=1, drop_last=True)
 
@@ -96,21 +109,31 @@ def main():
     }
 
     # model setup
-#     model = Model(arch=cfg['arch'], num_classes=len(
-#         cfg['class_names']), freeze=cfg['freeze'])
     model = timm.create_model(model_name=cfg['arch'], num_classes=len(
-        cfg['class_names']),drop_rate=0.5, pretrained=True)
+        cfg['class_names']), drop_rate=0.5, pretrained=True)
     model.train()
 
-    # optimizer setup
-#     weight = torch.Tensor([0.1, 0.7, 0.1, 0.1]).to(cfg['device'])
-    criterion = LabelSmoothingCrossEntropy() # nn.CrossEntropyLoss() #nn.BCEWithLogitsLoss() #
-#     optimizer = torch.optim.Adam(
-#         model.parameters(), lr=cfg['lr'], weight_decay=1e-4)
-#     optimizer = RAdam(model.parameters(), lr=cfg['lr'], weight_decay=1e-4)
-    optimizer = AdamW(model.parameters(), lr=cfg['lr'], weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, factor=0.5, patience=4)
+    # loss
+    if cfg['criterion'] == 'label_smooth':
+        criterion = LabelSmoothingCrossEntropy()
+    elif cfg['criterion'] == 'cross_entropy':
+        criterion = nn.CrossEntropyLoss()
+
+    # optimizer
+    if cfg['optimizer'] == 'adam':
+        optimizer = torch.optim.Adam(
+            model.parameters(), lr=cfg['lr'], weight_decay=cfg['wd'])
+    elif cfg['optimizer'] == 'adamw':
+        optimizer = AdamW(
+            model.parameters(), lr=cfg['lr'], weight_decay=cfg['wd'])
+    elif cfg['optimizer'] == 'radam':
+        optimizer = RAdam(
+            model.parameters(), lr=cfg['lr'], weight_decay=cfg['wd'])
+
+    # learning schedule
+    if cfg['lr_schedule'] == 'reduce_plateau':
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, factor=0.5, patience=4)
 
     # trainer
     runner = SupervisedRunner(device=cfg['device'])
