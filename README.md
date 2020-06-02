@@ -1,132 +1,56 @@
 # plant-pathology-2020-fgvc7-pytorch
-Solution to kaggle competition on Plant leaf classification
+This is a solution to kaggle competition on categorizing foliar disease in apple tree leaves. 
+
+## Results 
+In private leaderboard, an ensemble solution achieved 0.967 score with top 26%.   
+
+## About Competition
+Develop a model that uses images of plant leaves and categorizes them into different diseased categories. 
+For further info about dataset: https://arxiv.org/abs/2004.11958 
+
+The prediction categories as as follows: 
+- `health` 
+- `rust` 
+- `scab` 
+- `multiple` : this  conists of both rust and scab diseases
+
+The data was highly imbalanced 
+
+## Solution 
+In order to train the model, first have a look at `config.py` and modify variables accordingly. 
+
+### Key things: 
+- Weighted sampling of data for data imbalance. 
+- Variety of data random data augmentation strategies to make robust mdoel. 
+- Use of **Label Smoothing** to address better predictions: https://arxiv.org/abs/1512.00567 
+- **Efficientnet** as feature extractor : https://arxiv.org/abs/1905.11946 
+- Pre-trained models using **noisy-student** method: https://arxiv.org/abs/1911.04252
+- Optimization of cost function is based on modified version of Adam : https://arxiv.org/abs/1711.05101   
+
+To use or not use can be configured in `config.py`:
+
+```python 
+        'criterion':'label_smooth', # other : cross_entropy
+        'optimizer':'adamw', # other : adam, radam
+        'lr': 3e-4, # learning rate 
+        'wd': 1e-5, # weight decay parameter
+        'lr_schedule':'reduce_plateau', # cyclic_lr , 
+        'arch': 'tf_efficientnet_b5_ns',  # backend architecture
+```
+
+## Requirements 
+- torch : `1.5.0a0+8f84ded`
+- torchvision : `0.6.0a0` 
+
+others are in `requirements.txt` 
 
 
+## Improvements 
 
-## Exp1 : 
-- training with backbone freeze of `resnext50_32x4d` 
-- submission score : 0.848 
-- trained for 7 epochs only 
-- on kaggle 
+- largest model that I could use was `tf_efficientnet_b5_ns` due to limited GPU memory, there can be further improvements using `efficinet-b6, b7 or b8`. 
+- training is done in straight forward manner, but improvements can be made using noisy student training or utilizing self-supervised.  
 
-## Exp2 
-- training with backbone freeze of `resnext50_32x4d`
-- trained for about 25 epochs 
-- submission score : 0.850 
-- `20200502-092213`
-
-
-## Exp3 
-- training with complete parameter learning of `resnext50_32x4d`
-- improved a lot : 0.93 score 
-- `20200502-104119`
-
-## Exp4 
-- training with complete parameter learning of `resnext50_32x4d`
-- loss function is non-weighted
-- `20200502-113934`
-- score improved : 0.941
-
-## Exp4 
-- same as 4 with more data augmentations 
-- backbone: `resnext50_32dx4d`
-- havent tested 
-
-## Exp5 
-- same as 4 with more data augmentations 
-- backbone: `resnext50_32dx4d`
-- added weighted sampler for dataset
-- weights are inverse of the class 
-- `20200502-143536`
-
-## Exp6
-- same as 5 
-- backbone: `resnet18'`
-- added weighted sampler for dataset
-- weights are inverse of the class 
-- increase lr reduction with patience 4 
-- `20200502-163715`
-
-## Exp7
-- same as 6 
-- backbone: `resnet34`
-- havent tested on on submission score yet 
-- `20200502-170527`
-
-## Exp8 
-- backbone: `resnext50_32dx4d`
-- image size is reduced to 224 
-- not submitted 
-- `20200503-033216`
-
-## Exp 9 
-- backbone : `resnext50_32dx4d`
-- augmentation same as exp 5 
-- optimizer changed from adam to Radam 
-
-## Exp 10
-- backbone : `resnext50_32dx4d`
-- augmentation same as exp 5 
-- optimizer changed from adam to Radam 
-- all of exp 9 
-- adds weights of x-entropy loss
-- `20200503-043910`
-
-## Exp 11 
-- change backbone : `efficientnet`
-- slow update 
-- `20200503-045711`
-
-## Exp 12 
-- same as exp 11 
-- increase learning rate 
-- weight decay set to `1e-4`
-- `20200503=050919`
-
-
-## Exp 13 
-- same as exp 12 
-- change RAdam to adam
-- converges to max of 90% acc
-- `20200503-053943`
-
-## Exp 14 
-- same as exp 13 
-- remove loss weights since we are over sampling. 
-- backbone : `resnet50`
-- binary classification: healthy / unhealthy 
-- `20200503-063152`
-
-## Exp 15 
-- same as exp 14 
-- remove loss weights since we are over sampling. 
-- backbone : `resnext50_32x4d`
-- binary classification: healthy / unhealthy
-- `20200503-074612`
-
-## Exp 16 
-- trains for 3 class classification 
-- setting is similar to exp 15 
-- no healthy dataset is used (train/test)
-- accuracy started decreasing after few epochs
-
-## Exp 17
-- same as exp 16 but without weights for data sampling
-- trains for 3 class classification 
-- setting is similar to exp 15 
-- no healthy dataset is used (train/test)
-- accuracy started decreasing after few epochs
-- `20200503-091324`
-- Evaluation with both h/u and 3 class classification is not yielding anything
-
-## Exp 18
-- split dataset into 4 groups 
-- trained ensemle of 4 models for each dataset 
-- evaluation score: 0.95 
-- `split1_`* 
-
-## Exp 19 
-- multi-class classification with BCE
-- this provides individual score for each category of rust or scab 
-- instead of doing 1-class prediction  
-- `unhealthy_seresnet1010`
+# Acknowledgements
+- pytorch pre-trained image models : https://github.com/rwightman/pytorch-image-models 
+- data augmentations : https://albumentations.readthedocs.io/en/latest/ 
+- logging and utils : https://github.com/catalyst-team/catalyst 
