@@ -1,5 +1,6 @@
 # plant-pathology-2020-fgvc7-pytorch
 This is a solution to kaggle competition on categorizing foliar disease in apple tree leaves. 
+For data and further competition info : https://www.kaggle.com/c/plant-pathology-2020-fgvc7 
 
 ## Results 
 In private leaderboard, an ensemble solution achieved 0.967 score with top 26%.   
